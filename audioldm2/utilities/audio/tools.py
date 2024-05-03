@@ -25,10 +25,10 @@ def normalize_wav(waveform):
     return waveform * 0.5
 
 
-def read_wav_file(filename, segment_length):
+def read_wav_file(filename, segment_length, new_freq=16000):
     # waveform, sr = librosa.load(filename, sr=None, mono=True) # 4 times slower
     waveform, sr = torchaudio.load(filename)  # Faster!!!
-    waveform = torchaudio.functional.resample(waveform, orig_freq=sr, new_freq=16000)
+    waveform = torchaudio.functional.resample(waveform, orig_freq=sr, new_freq=new_freq)
     waveform = waveform.numpy()[0, ...]
     waveform = normalize_wav(waveform)
     waveform = waveform[None, ...]

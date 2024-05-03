@@ -151,6 +151,7 @@ def get_vocoder(config, device, mel_bins):
             vocoder.eval()
             vocoder.remove_weight_norm()
             vocoder.to(device)
+    # TODO: add bigVGAN
     return vocoder
 
 

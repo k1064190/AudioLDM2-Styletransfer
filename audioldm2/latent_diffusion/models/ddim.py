@@ -115,6 +115,7 @@ class DDIMSampler(object):
         unconditional_conditioning=None,  # this has to come in the same format as the conditioning, # e.g. as encoded tokens, ...
         dynamic_threshold=None,
         ucg_schedule=None,
+        transfer_strength=0.0,
         **kwargs,
     ):
         # if conditioning is not None:
@@ -139,6 +140,13 @@ class DDIMSampler(object):
         C, H, W = shape
         size = (batch_size, C, H, W)
         # print(f'Data shape for DDIM sampling is {size}, eta {eta}')
+
+        if transfer_strength > 0:
+            t_enc = int(transfer_strength * S)
+            self.transfer_strength = transfer_strength
+            x_T = self.stochastic_encode(x_T, torch.tensor([t_enc] * batch_size).to(self.device))
+
+        assert x_T is None or x_T.shape == size, "x_T has to have the same shape as the samples"
 
         samples, intermediates = self.ddim_sampling(
             conditioning,

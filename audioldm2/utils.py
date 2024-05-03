@@ -437,7 +437,7 @@ def get_audioldm_48k_config():
                 },
                 "stft": {
                 "filter_length": 2048,
-                "hop_length": 480,
+                "hop_length": 480,  # 10ms
                 "win_length": 2048
                 },
                 "mel": {

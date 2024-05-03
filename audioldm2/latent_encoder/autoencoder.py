@@ -104,7 +104,7 @@ class AutoencoderKL(nn.Module):
         # x = self.time_shuffle_operation(x)
         # x = self.freq_split_subband(x)
         h = self.encoder(x)
-        moments = self.quant_conv(h)
+        moments = self.quant_conv(h)    # to 2 * embed_dim, each mean, std
         posterior = DiagonalGaussianDistribution(moments)
         return posterior
 

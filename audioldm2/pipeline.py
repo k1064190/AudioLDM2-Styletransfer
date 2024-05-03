@@ -1,14 +1,19 @@
+import contextlib
 import os
 import re
+import wave
 
 import yaml
 import torch
 import torchaudio
+from einops import repeat
 
 import audioldm2.latent_diffusion.modules.phoneme_encoder.text as text
 from audioldm2.latent_diffusion.models.ddpm import LatentDiffusion
 from audioldm2.latent_diffusion.util import get_vits_phoneme_ids_no_padding
+from audioldm2.utilities.audio import TacotronSTFT
 from audioldm2.utils import default_audioldm_config, download_checkpoint
+from audioldm2.utilities.audio.tools import *
 import os
 
 # CACHE_DIR = os.getenv(
@@ -72,7 +77,7 @@ def extract_kaldi_fbank_feature(waveform, sampling_rate, log_mel_spec):
 
     return {"ta_kaldi_fbank": fbank}  # [1024, 128]
 
-def make_batch_for_text_to_audio(text, transcription="", waveform=None, fbank=None, batchsize=1):
+def make_batch_for_text_to_audio(text, transcription="", waveform=None, fbank=None, batchsize=1, config=None):
     text = [text] * batchsize
     if(transcription):
         transcription = text2phoneme(transcription)
@@ -87,7 +92,10 @@ def make_batch_for_text_to_audio(text, transcription="", waveform=None, fbank=No
         )  # Not used, here to keep the code format
     else:
         fbank = torch.FloatTensor(fbank)
-        fbank = fbank.expand(batchsize, 1024, 64)
+        # fbank = fbank.expand(batchsize, 1024, 64)
+        fbank = fbank.unsqueeze(0)
+        fbank = repeat(fbank, "1 ... -> b ...", b=batchsize)
+
         assert fbank.size(0) == batchsize
 
     stft = torch.zeros((batchsize, 1024, 512))  # Not used
@@ -100,7 +108,8 @@ def make_batch_for_text_to_audio(text, transcription="", waveform=None, fbank=No
         waveform = torch.FloatTensor(waveform)
         waveform = waveform.expand(batchsize, -1)
         assert waveform.size(0) == batchsize
-        ta_kaldi_fbank = extract_kaldi_fbank_feature(waveform, 16000, fbank)
+        sr = config["preprocessing"]["audio"]["sampling_rate"]
+        ta_kaldi_fbank = extract_kaldi_fbank_feature(waveform, sr, fbank)
 
     batch = {
         "text": text,  # list
@@ -169,7 +178,7 @@ def build_model(ckpt_path=None, config=None, device=None, model_name="audioldm2-
     latent_diffusion.eval()
     latent_diffusion = latent_diffusion.to(device)
     
-    return latent_diffusion
+    return latent_diffusion, config
 
 def text_to_audio(
     latent_diffusion,
@@ -182,7 +191,6 @@ def text_to_audio(
     guidance_scale=3.5,
     n_candidate_gen_per_text=3,
     latent_t_per_second=25.6,
-    config=None,
 ):
 
     seed_everything(int(seed))
@@ -199,6 +207,82 @@ def text_to_audio(
             ddim_steps=ddim_steps,
             n_gen=n_candidate_gen_per_text,
             duration=duration,
+        )
+
+    return waveform
+
+
+def get_duration(fname):
+    with contextlib.closing(wave.open(fname, 'r')) as f:
+        frames = f.getnframes()
+        rate = f.getframerate()
+        return frames / float(rate)
+
+
+def get_bit_depth(fname):
+    with contextlib.closing(wave.open(fname, 'r')) as f:
+        bit_depth = f.getsampwidth() * 8
+        return bit_depth
+
+def style_transfer(
+        latent_diffusion,
+        text,
+        original_audio_file_path,
+        transfer_strength=0.5,
+        seed=42,
+        duration=10,
+        batchsize=1,
+        guidance_scale=2.5,
+        ddim_steps=200,
+        latent_t_per_second=25.6,   # it's default for 16kHz, for 48kHz, 12.8
+        n_candidate_gen_per_text=1,
+        config=None,
+):
+    seed_everything(int(seed))
+    # waveform = None   You need waveform to transfer style
+
+    assert original_audio_file_path is not None, "You need to provide the original audio file path"
+
+    audio_file_duration = get_duration(original_audio_file_path)
+
+    assert get_bit_depth(
+        original_audio_file_path) == 16, "The bit depth of the original audio file %s must be 16" % original_audio_file_path
+
+    if (duration > audio_file_duration):
+        print("Warning: Duration you specified %s-seconds must equal or smaller than the audio file duration %ss" % (
+        duration, audio_file_duration))
+        duration = round_up_duration(audio_file_duration)
+        print("Set new duration as %s-seconds" % duration)
+
+    latent_diffusion.latent_t_size = int(duration * latent_t_per_second)
+    latent_diffusion.latent_f_size = config["preprocessing"]["mel"]["n_mel_channels"] // 4
+
+    fn_STFT = TacotronSTFT(
+        config["preprocessing"]["stft"]["filter_length"],
+        config["preprocessing"]["stft"]["hop_length"],
+        config["preprocessing"]["stft"]["win_length"],
+        config["preprocessing"]["mel"]["n_mel_channels"],
+        config["preprocessing"]["audio"]["sampling_rate"],
+        config["preprocessing"]["mel"]["mel_fmin"],
+        config["preprocessing"]["mel"]["mel_fmax"],
+    )
+
+    waveform = read_wav_file(original_audio_file_path,
+                        segment_length=duration * config["preprocessing"]["audio"]["sampling_rate"],
+                        new_freq=config["preprocessing"]["audio"]["sampling_rate"])
+
+    mel, _, _ = get_mel_from_wav(waveform, fn_STFT)  # [t, bin]
+
+    batch = make_batch_for_text_to_audio(text, transcription="", waveform=waveform, fbank=mel, batchsize=batchsize, config=config)
+
+    with torch.no_grad():
+        waveform = latent_diffusion.generate_batch(
+            batch,
+            unconditional_guidance_scale=guidance_scale,
+            ddim_steps=ddim_steps,
+            n_gen=n_candidate_gen_per_text,
+            duration=duration,
+            transfer_strength=transfer_strength
         )
 
     return waveform

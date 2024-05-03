@@ -423,8 +423,7 @@ class DDPM(nn.Module):
 
     @torch.no_grad()
     def sample(self, batch_size=16, return_intermediates=False):
-        shape = (batch_size, channels, self.latent_t_size, self.latent_f_size)
-        self.channels
+        shape = (batch_size, self.channels, self.latent_t_size, self.latent_f_size)
         return self.p_sample_loop(shape, return_intermediates=return_intermediates)
 
     def q_sample(self, x_start, t, noise=None):
@@ -837,13 +836,13 @@ class LatentDiffusion(DDPM):
         return_encoder_output=False,
         unconditional_prob_cfg=0.1,
     ):
-        x = super().get_input(batch, k)
+        x = super().get_input(batch, k) # only fbank(log mel spectrogram) is used
 
         x = x.to(self.device)
 
         if return_first_stage_encode:
-            encoder_posterior = self.encode_first_stage(x)
-            z = self.get_first_stage_encoding(encoder_posterior).detach()
+            encoder_posterior = self.encode_first_stage(x)  # mel to q(z | x)
+            z = self.get_first_stage_encoding(encoder_posterior).detach()   # using mean and std, sample z
         else:
             z = None
         cond_dict = {}
@@ -876,7 +875,7 @@ class LatentDiffusion(DDPM):
                 # If cond_model_key is "all", that means the conditional model need all the information from a batch
 
                 if cond_stage_key != "all":
-                    xc = super().get_input(batch, cond_stage_key)
+                    xc = super().get_input(batch, cond_stage_key)   # mostly, "text"
                     if type(xc) == torch.Tensor:
                         xc = xc.to(self.device)
                 else:
@@ -904,7 +903,7 @@ class LatentDiffusion(DDPM):
         out = [z, cond_dict]
 
         if return_decoding_output:
-            xrec = self.decode_first_stage(z)
+            xrec = self.decode_first_stage(z)   # z to mel
             out += [xrec]
 
         if return_encoder_input:
@@ -917,7 +916,7 @@ class LatentDiffusion(DDPM):
             self.conditional_dry_run_finished = True
 
         # Output is a dictionary, where the value could only be tensor or tuple
-        return out
+        return out  # [z, cond_dict, ^mel?, mel?, q(z | x)?]
 
     def decode_first_stage(self, z):
         with torch.no_grad():
@@ -1425,6 +1424,8 @@ class LatentDiffusion(DDPM):
         unconditional_conditioning=None,
         use_plms=False,
         mask=None,
+        x_T=None,
+        transfer_strength=0,
         **kwargs,
     ):
         if mask is not None:
@@ -1444,8 +1445,10 @@ class LatentDiffusion(DDPM):
                 unconditional_guidance_scale=unconditional_guidance_scale,
                 unconditional_conditioning=unconditional_conditioning,
                 mask=mask,
+                x_T=x_T,
+                transfer_strength=transfer_strength,
                 **kwargs,
-            )
+            )   # you can give x_t as well
         elif use_plms:
             plms_sampler = PLMSSampler(self)
             samples, intermediates = plms_sampler.sample(
@@ -1484,6 +1487,7 @@ class LatentDiffusion(DDPM):
         unconditional_guidance_scale=1.0,
         unconditional_conditioning=None,
         use_plms=False,
+        transfer_strength=0,
         **kwargs,
     ):
         # Generate n_gen times and select the best
@@ -1501,7 +1505,7 @@ class LatentDiffusion(DDPM):
                 batch,
                 self.first_stage_key,
                 unconditional_prob_cfg=0.0,  # Do not output unconditional information in the c
-            )
+            )   # originally, fbank is just zero tensor, so resulting z is just zero tensor maybe? idk
 
             c = self.filter_useful_cond_dict(c)
 
@@ -1543,6 +1547,7 @@ class LatentDiffusion(DDPM):
                 unconditional_guidance_scale=unconditional_guidance_scale,
                 unconditional_conditioning=unconditional_conditioning,
                 use_plms=use_plms,
+                transfer_strength=transfer_strength,
             )
 
             mel = self.decode_first_stage(samples)
