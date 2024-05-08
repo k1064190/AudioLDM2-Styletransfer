@@ -1492,7 +1492,6 @@ class LatentDiffusion(DDPM):
     ):
         # Generate n_gen times and select the best
         # Batch: audio, text, fnames
-        assert x_T is None
 
         if use_plms:
             assert ddim_steps is not None
@@ -1506,13 +1505,20 @@ class LatentDiffusion(DDPM):
                 self.first_stage_key,
                 unconditional_prob_cfg=0.0,  # Do not output unconditional information in the c
             )   # originally, fbank is just zero tensor, so resulting z is just zero tensor maybe? idk
+            # Generate multiple samples
+            batch_size = z.shape[0] * n_gen
+
+            if x_T is not None:
+                x_T = x_T.to(self.device)   # [t, f]
+                x_T = rearrange(x_T, "t f -> 1 1 t f")
+                x_T = repeat(x_T, "1 ... -> b ...", b=batch_size)
+                posterior = self.encode_first_stage(x_T)
+                x_T = self.get_first_stage_encoding(posterior).detach()
 
             c = self.filter_useful_cond_dict(c)
 
             text = super().get_input(batch, "text")
 
-            # Generate multiple samples
-            batch_size = z.shape[0] * n_gen
 
             # Generate multiple samples at a time and filter out the best
             # The condition to the diffusion wrapper can have many format

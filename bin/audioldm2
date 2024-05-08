@@ -27,7 +27,7 @@ parser.add_argument(
     required=False,
     default="generation",
     help="The mode you want to use. Currently only support generation, transfer",
-    choices=["generation, transfer"],
+    choices=["generation", "transfer"],
 )
 
 parser.add_argument(
@@ -132,7 +132,7 @@ parser.add_argument(
     "--n_candidate_gen_per_text",
     type=int,
     required=False,
-    default=3,
+    default=1,
     help="Automatic quality control. This number control the number of candidates (e.g., generate three audios and choose the best to show you). A Larger value usually lead to better quality with heavier computation",
 )
 

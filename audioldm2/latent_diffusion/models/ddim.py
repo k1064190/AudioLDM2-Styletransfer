@@ -141,10 +141,18 @@ class DDIMSampler(object):
         size = (batch_size, C, H, W)
         # print(f'Data shape for DDIM sampling is {size}, eta {eta}')
 
-        if transfer_strength > 0:
-            t_enc = int(transfer_strength * S)
+        timesteps = None
+        if transfer_strength != 1.0:
+            t_enc = max(0, min(int(transfer_strength * S - 1), S - 1))
             self.transfer_strength = transfer_strength
             x_T = self.stochastic_encode(x_T, torch.tensor([t_enc] * batch_size).to(self.device))
+            t_enc += 1
+            timesteps = t_enc
+        elif transfer_strength == 0.0:
+            timesteps = 0   # no timestep
+        else:
+            x_T = None  # noise only
+
 
         assert x_T is None or x_T.shape == size, "x_T has to have the same shape as the samples"
 
@@ -167,6 +175,7 @@ class DDIMSampler(object):
             unconditional_conditioning=unconditional_conditioning,
             dynamic_threshold=dynamic_threshold,
             ucg_schedule=ucg_schedule,
+            timesteps=timesteps
         )
         return samples, intermediates
 
@@ -212,7 +221,6 @@ class DDIMSampler(object):
                     min(timesteps / self.ddim_timesteps.shape[0], 1)
                     * self.ddim_timesteps.shape[0]
                 )
-                - 1
             )
             timesteps = self.ddim_timesteps[:subset_end]
 

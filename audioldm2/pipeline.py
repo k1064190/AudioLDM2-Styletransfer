@@ -255,7 +255,7 @@ def style_transfer(
         print("Set new duration as %s-seconds" % duration)
 
     latent_diffusion.latent_t_size = int(duration * latent_t_per_second)
-    latent_diffusion.latent_f_size = config["preprocessing"]["mel"]["n_mel_channels"] // 4
+    latent_diffusion.latent_f_size = config["preprocessing"]["mel"]["n_mel_channels"] // 8
 
     fn_STFT = TacotronSTFT(
         config["preprocessing"]["stft"]["filter_length"],
@@ -267,13 +267,9 @@ def style_transfer(
         config["preprocessing"]["mel"]["mel_fmax"],
     )
 
-    waveform = read_wav_file(original_audio_file_path,
-                        segment_length=duration * config["preprocessing"]["audio"]["sampling_rate"],
-                        new_freq=config["preprocessing"]["audio"]["sampling_rate"])
+    mel, log_mel, waveform = wav_to_fbank(original_audio_file_path, target_length=int(duration * 102.4), fn_STFT=fn_STFT)
 
-    mel, _, _ = get_mel_from_wav(waveform, fn_STFT)  # [t, bin]
-
-    batch = make_batch_for_text_to_audio(text, transcription="", waveform=waveform, fbank=mel, batchsize=batchsize, config=config)
+    batch = make_batch_for_text_to_audio(text, transcription="", batchsize=batchsize, config=config)
 
     with torch.no_grad():
         waveform = latent_diffusion.generate_batch(
@@ -282,7 +278,8 @@ def style_transfer(
             ddim_steps=ddim_steps,
             n_gen=n_candidate_gen_per_text,
             duration=duration,
-            transfer_strength=transfer_strength
+            transfer_strength=transfer_strength,
+            x_T = mel
         )
 
     return waveform
