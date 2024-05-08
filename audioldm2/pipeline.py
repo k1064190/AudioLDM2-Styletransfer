@@ -25,13 +25,14 @@ def seed_everything(seed):
     import numpy as np
     import torch
 
-    random.seed(seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = True
+    if seed is not None:
+        random.seed(seed)
+        os.environ["PYTHONHASHSEED"] = str(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = True
 
 def text2phoneme(data):
     return text._clean_text(re.sub(r'<.*?>', '', data), ["english_cleaners2"])
@@ -184,7 +185,7 @@ def text_to_audio(
     latent_diffusion,
     text,
     transcription="",
-    seed=42,
+    seed=None,
     ddim_steps=200,
     duration=10,
     batchsize=1,
@@ -229,7 +230,7 @@ def style_transfer(
         text,
         original_audio_file_path,
         transfer_strength=0.5,
-        seed=42,
+        seed=None,
         duration=10,
         batchsize=1,
         guidance_scale=2.5,
