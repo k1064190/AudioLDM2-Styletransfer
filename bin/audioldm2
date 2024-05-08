@@ -1,9 +1,11 @@
 #!/usr/bin/python3
 import os
+import sys
 # set working directory to current directory
 cwd = os.getcwd()
 print("Current working directory: {0}".format(cwd))
 os.chdir(cwd)
+sys.path.append(cwd)
 
 import torch
 import logging
