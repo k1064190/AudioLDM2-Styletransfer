@@ -1,5 +1,10 @@
 #!/usr/bin/python3
 import os
+# set working directory to current directory
+cwd = os.getcwd()
+print("Current working directory: {0}".format(cwd))
+os.chdir(cwd)
+
 import torch
 import logging
 from audioldm2 import text_to_audio, build_model, save_wave, get_time, read_list, style_transfer
