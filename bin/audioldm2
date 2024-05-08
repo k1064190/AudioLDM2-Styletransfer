@@ -151,6 +151,9 @@ parser.add_argument(
     help="Change this value (any integer number) will lead to a different generation result.",
 )
 
+# clear the cache and free the memory, vram
+torch.cuda.empty_cache()
+
 args = parser.parse_args()
 
 torch.set_float32_matmul_precision("high")

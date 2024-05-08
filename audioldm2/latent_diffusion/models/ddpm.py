@@ -1556,6 +1556,8 @@ class LatentDiffusion(DDPM):
                 transfer_strength=transfer_strength,
             )
 
+            print("Start decoding the samples with vae and vocoder")
+
             mel = self.decode_first_stage(samples)
 
             waveform = self.mel_spectrogram_to_waveform(
