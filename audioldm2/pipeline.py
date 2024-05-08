@@ -260,7 +260,7 @@ def style_transfer(
         print("Set new duration as %s-seconds" % duration)
 
     latent_diffusion.latent_t_size = int(duration * latent_t_per_second)
-    latent_diffusion.latent_f_size = config["preprocessing"]["mel"]["n_mel_channels"] // 8
+    # latent_diffusion.latent_f_size = config["preprocessing"]["mel"]["n_mel_channels"] // 8
 
     fn_STFT = TacotronSTFT(
         config["preprocessing"]["stft"]["filter_length"],

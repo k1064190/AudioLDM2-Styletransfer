@@ -1425,7 +1425,7 @@ class LatentDiffusion(DDPM):
         use_plms=False,
         mask=None,
         x_T=None,
-        transfer_strength=0,
+        transfer_strength=0.5,
         **kwargs,
     ):
         if mask is not None:

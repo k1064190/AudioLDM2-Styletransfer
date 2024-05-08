@@ -143,16 +143,16 @@ class DDIMSampler(object):
 
         timesteps = None
         if x_T is not None:
-            if transfer_strength != 1.0:
+            if transfer_strength == 1.0:
+                x_T = None  # Noise only
+            elif transfer_strength == 0.0:
+                timesteps = 0   # no timestep
+            else:
                 t_enc = max(0, min(int(transfer_strength * S - 1), S - 1))
                 self.transfer_strength = transfer_strength
                 x_T = self.stochastic_encode(x_T, torch.tensor([t_enc] * batch_size).to(self.device))
                 t_enc += 1
                 timesteps = t_enc
-            elif transfer_strength == 0.0:
-                timesteps = 0   # no timestep
-            else:
-                x_T = None  # noise only
 
 
         assert x_T is None or x_T.shape == size, "x_T has to have the same shape as the samples"
@@ -206,6 +206,7 @@ class DDIMSampler(object):
         device = self.model.betas.device
         b = shape[0]
         if x_T is None:
+            print("Sampling from noise")
             img = torch.randn(shape, device=device)
         else:
             img = x_T
