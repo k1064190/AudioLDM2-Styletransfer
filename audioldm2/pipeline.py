@@ -126,7 +126,7 @@ def make_batch_for_text_to_audio(text, transcription="", waveform=None, fbank=No
 
 
 def round_up_duration(duration):
-    return int(round(duration / 2.5) + 1) * 2.5
+    return int(round(duration / 2.5) + 0.25) * 2.5
 
 
 # def split_clap_weight_to_pth(checkpoint):
@@ -253,11 +253,14 @@ def style_transfer(
     assert get_bit_depth(
         original_audio_file_path) == 16, "The bit depth of the original audio file %s must be 16" % original_audio_file_path
 
-    if (duration > audio_file_duration):
-        print("Warning: Duration you specified %s-seconds must equal or smaller than the audio file duration %ss" % (
-        duration, audio_file_duration))
-        duration = round_up_duration(audio_file_duration)
-        print("Set new duration as %s-seconds" % duration)
+    # if (duration > audio_file_duration):
+    #     print("Warning: Duration you specified %s-seconds must equal or smaller than the audio file duration %ss" % (
+    #     duration, audio_file_duration))
+    #     duration = round_up_duration(audio_file_duration)
+    #     print("Set new duration as %s-seconds" % duration)
+    # we want duration always follow the specified duration
+    duration = round_up_duration(duration)
+    print("Duration: %s" % duration)
 
     latent_diffusion.latent_t_size = int(duration * latent_t_per_second)
     # latent_diffusion.latent_f_size = config["preprocessing"]["mel"]["n_mel_channels"] // 8
