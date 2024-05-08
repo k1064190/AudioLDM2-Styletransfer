@@ -26,6 +26,7 @@ def seed_everything(seed):
     import torch
 
     if seed is not None:
+        seed = int(seed)
         random.seed(seed)
         os.environ["PYTHONHASHSEED"] = str(seed)
         np.random.seed(seed)
@@ -174,7 +175,7 @@ def build_model(ckpt_path=None, config=None, device=None, model_name="audioldm2-
 
     checkpoint = torch.load(resume_from_checkpoint, map_location=device)
 
-    latent_diffusion.load_state_dict(checkpoint["state_dict"])
+    latent_diffusion.load_state_dict(checkpoint["state_dict"], strict=False)
     
     latent_diffusion.eval()
     latent_diffusion = latent_diffusion.to(device)
@@ -194,7 +195,7 @@ def text_to_audio(
     latent_t_per_second=25.6,
 ):
 
-    seed_everything(int(seed))
+    seed_everything(seed)
     waveform = None
 
     batch = make_batch_for_text_to_audio(text, transcription=transcription, waveform=waveform, batchsize=batchsize)
@@ -239,7 +240,7 @@ def style_transfer(
         n_candidate_gen_per_text=1,
         config=None,
 ):
-    seed_everything(int(seed))
+    seed_everything(seed)
     # waveform = None   You need waveform to transfer style
 
     assert original_audio_file_path is not None, "You need to provide the original audio file path"
